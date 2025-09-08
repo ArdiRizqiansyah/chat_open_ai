@@ -8,6 +8,8 @@ use App\Models\Room;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Prism\Prism\Prism;
+use Prism\Prism\Enums\Provider;
 
 class ChatController extends Controller
 {
@@ -15,17 +17,20 @@ class ChatController extends Controller
     {
         try {
             DB::beginTransaction();
+            // $response = Http::withToken(env('OPENAI_API_KEY'))
+            //     ->post('https://api.openai.com/v1/responses', [
+            //         'model' => 'gpt-3.5-turbo',
+            //         'previous_response_id' => $request->post('id') ?? null,
+            //         'input' => $request->post('content'),
+            //     ]);
 
-            $response = Http::withToken(env('OPENAI_KEY'))
-                ->post('https://api.openai.com/v1/responses', [
-                    'model' => 'gpt-3.5-turbo',
-                    'previous_response_id' => $request->post('id') ?? null,
-                    'input' => $request->post('content'),
-                ]);
-
-            $id = $request->post('id') ?? $response->json('id');
-            $content = $response->json('output.{first}.content.{first}.text');
-            $message_id = $response->json('output.{first}.id');
+            $response = Prism::text()
+                ->using(Provider::OpenAI, 'gpt-3.5-turbo')
+                ->withPrompt($request->post('content'))
+                ->asText();
+            
+            $id = $request->post('id') ?? $response->meta->id;;
+            $content = $response->text;
 
             if (@$request->post('id')) {
                 // find room
@@ -34,7 +39,7 @@ class ChatController extends Controller
                 // store room 
                 $room = Room::create([
                     'title' => substr($request->post('content'), 0, 50),
-                    'response_open_ai_id' => $response->json('id'),
+                    'response_open_ai_id' => $id,
                 ]);
             }
 
@@ -50,13 +55,12 @@ class ChatController extends Controller
                 'message' => $content,
                 'side' => 'assistant',
                 'room_id' => $room->id,
-                'message_open_ai_id' => $message_id,
+                // 'raw_response' => json_encode($response),
             ]);
 
             DB::commit();
 
             return [
-                'raw' => $response,
                 'id' => $id,
                 'content' => $content,
             ];

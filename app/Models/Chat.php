@@ -11,6 +11,7 @@ class Chat extends Model
         'message',
         'side',
         'message_open_ai_id',
+        'raw_response',
         'room_id',
     ];
 
