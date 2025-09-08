@@ -26,6 +26,9 @@ class ChatController extends Controller
 
             $response = Prism::text()
                 ->using(Provider::OpenAI, 'gpt-3.5-turbo')
+                ->withProviderOptions([ 
+                    'previous_response_id' => $request->post('id')?? null,
+                ]) 
                 ->withPrompt($request->post('content'))
                 ->asText();
             
